@@ -1,4 +1,4 @@
-function [score, label] = get_sepsis_score(data, model)
+function [score, label] = get_sepsis_score(x,model)
 
 xname={'HR','O2Sat','Temp','SBP','MAP','DBP','Resp','EtCO2','BaseExcess','HCO3',...
     'FiO2','pH','PaCO2','SaO2','AST','BUN','Alkalinephos','Calcium','Chloride',...
@@ -6,13 +6,28 @@ xname={'HR','O2Sat','Temp','SBP','MAP','DBP','Resp','EtCO2','BaseExcess','HCO3',
     'Potassium','Bilirubin_total','TroponinI','Hct','Hgb','PTT','WBC','Fibrinogen',...
     'Platelets','Age','Gender','Unit1','Unit2','HospAdmTime','ICULOS'}';    
 
-t=data(:,end);
-[x,xmeas]=samplehold(data,t);
-z=steprisk(model,x,xmeas);
-p=evalmodel(model,z);
+nx=length(xname);
 
-T=model.T;
-score=p(end);
+%Preprocess demographic data
+c=strmatch('Age',xname);
+x(x(:,c)==100,1)=90;
+c=strmatch('Unit1',xname);
+x(isnan(x(:,c)),c)=0;
+c=strmatch('Unit2',xname);
+x(isnan(x(:,c)),c)=0;
+c=strmatch('HospAdmTime',xname);
+x(isnan(x(:,c)),c)=0;
+
+mod=model.mod;
+t=x(:,end);
+
+% [x,xmeas]=samplehold(x,t);
+[x,xmeas]=lastsample(x,t);
+z=steprisk(model,x,xmeas);
+z(isnan(z))=0;
+b=model.b;
+score=glmval(b,z(end,mod),'logit');
+T=model.Tmax;
 label=score>T;
     
 end
@@ -20,7 +35,8 @@ end
 function [x,xmeas]=samplehold(x,t)
 
 [nr,nx]=size(x);
-xmeas=-ones(nr,nx);
+maxtime=28*24;
+xmeas=maxtime*ones(nr,nx);
 nt=length(t);
 x1=x(1,:);
 t1=NaN*ones(1,nx);
@@ -44,15 +60,22 @@ end
 
 function [x,xmeas]=lastsample(data,t)
 
-[nr,nx]=size(x);
-t2=t(nt);
-x=data(nt,:);
+maxtime=28*24;
+[nr,nx]=size(data);
+t2=t(nr);
+x=data(nr,:);
+xmeas=maxtime*ones(1,nx);
 for i=1:nx
-    if ~isnan(x(i)),continue,end
+    if ~isnan(x(i))
+        xmeas(i)=0;
+        continue
+    end
     xx=data(:,i);
     k=find(~isnan(xx),1,'last');
     if isempty(k),continue,end
+    t1=t(k);
     x(i)=xx(k);
+    xmeas(i)=t2-t1;
 end
 
 end
@@ -60,33 +83,32 @@ end
 function z=steprisk(model,x,xmeas)
 
 [nr,nx]=size(x);
-z=NaN*ones(nr,nx);
+z=zeros(nr,nx);
 
 if nargin<3
     xmeas=zeros(nr,nx);
 end
 
-pc=model.pc;
+dc=model.dc;
 v1=model.v1;
 v2=model.v2;
-dp=model.dp;
-uy=model.uy;
+dx=model.dx;
+maxmeas=model.maxmeas;
 
-zp=logit(dp)-logit(uy);
-
-nd=length(pc);
+nd=length(dc);
 
 for i=1:nd
-    j=pc(i);
+    c=dc(i);
+    sub=xmeas(:,c)<=maxmeas;
     if ~isnan(v1(i))
-        sub=xmeas(:,j)>=0&x(:,j)>=v1(i);
+        sub=sub&x(:,c)>=v1(i);
         if v2(i)<Inf
-            sub=sub&x(:,j)<v2(i);
+            sub=sub&x(:,c)<v2(i);
         end
     else
-        sub=xmeas(:,j)<0;
+        sub=xmeas(:,c)>maxmeas;
     end
-    z(sub,j)=zp(i);
+    z(sub,c)=dx(i);
 end
 
 end
