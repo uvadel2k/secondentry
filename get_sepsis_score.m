@@ -11,51 +11,33 @@ nx=length(xname);
 %Preprocess demographic data
 c=strmatch('Age',xname);
 x(x(:,c)==100,1)=90;
-c=strmatch('Unit1',xname);
-x(isnan(x(:,c)),c)=0;
-c=strmatch('Unit2',xname);
-x(isnan(x(:,c)),c)=0;
-c=strmatch('HospAdmTime',xname);
-x(isnan(x(:,c)),c)=0;
+for c=36:40
+    x(isnan(x(:,c)),c)=0;
+end
+binary=false(nx,1);
+binary(36:38)=1;
 
-mod=model.mod;
 t=x(:,end);
 
 % [x,xmeas]=samplehold(x,t);
 [x,xmeas]=lastsample(x,t);
-z=steprisk(model,x,xmeas);
+z=steprisk(model,x,xmeas,binary);
 z(isnan(z))=0;
-b=model.b;
-score=glmval(b,z(end,mod),'logit');
-T=model.Tmax;
-label=score>T;
+disp(z)
+t1=model.t1;
+nt=length(t1);
+k=find(t(end)>=t1,1,'last');
+if isempty(k),k=nt;end
+b=model.b(:,k);
+T=model.T(k);
+mod=model.mod;
+xb=[1 z(mod)]*b;
+label=xb>T;
+score=exp(xb)/(1+exp(xb));
+%score=glmval(b,z(end,mod),'logit');
+%T=model.Tmax;
+%label=score>T;
     
-end
-
-function [x,xmeas]=samplehold(x,t)
-
-[nr,nx]=size(x);
-maxtime=28*24;
-xmeas=maxtime*ones(nr,nx);
-nt=length(t);
-x1=x(1,:);
-t1=NaN*ones(1,nx);
-j=find(~isnan(x1));
-t1(j)=t(1);
-xmeas(1,j)=0;
-for k=2:nt
-    x2=x(k,:);
-    j=find(~isnan(x2));
-    xmeas(k,j)=0;
-    x1(j)=x2(j);
-    t1(j)=t(k);        
-    t2=t(k)*ones(1,nx);        
-    j=find(isnan(x2)&~isnan(x1));        
-    x2(j)=x1(j);
-    x(k,:)=x2;
-    xmeas(k,j)=t2(j)-t1(j);        
-end
-
 end
 
 function [x,xmeas]=lastsample(data,t)
@@ -80,11 +62,11 @@ end
 
 end
 
-function z=steprisk(model,x,xmeas)
+function z=steprisk(model,x,xmeas,binary)
 
 [nr,nx]=size(x);
 z=zeros(nr,nx);
-
+z(:,binary)=x(:,binary);
 if nargin<3
     xmeas=zeros(nr,nx);
 end
@@ -99,6 +81,7 @@ nd=length(dc);
 
 for i=1:nd
     c=dc(i);
+    if binary(c),continue,end
     sub=xmeas(:,c)<=maxmeas;
     if ~isnan(v1(i))
         sub=sub&x(:,c)>=v1(i);
@@ -113,17 +96,3 @@ end
 
 end
 
-function p=evalmodel(model,x)
-
-b=model.b;
-mod=model.mod;
-p=glmval(b,x(:,mod),'logit');
-
-end
-
-function r=logit(p)
-%r=logit(p)
-
-r=log(p./(1-p));
-
-end
