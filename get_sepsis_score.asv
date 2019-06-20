@@ -21,8 +21,10 @@ for c=36:40
     x(isnan(x(:,c)),c)=0;
 end
 
+t=x(:,end);
+
 % [x,xmeas]=samplehold(x,t);
-[x,xmeas]=lastsample(x,x(:,end));
+[x,xmeas]=lastsample(x,t);
 vmeas=model.vmeas;
 for i=1:length(vmeas)    
     if xmeas(i)>=vmeas(i)
@@ -33,7 +35,7 @@ res=model.res;
 for i=1:length(res)
     if isnan(x(i)),continue,end    
     if isnan(res(i)),continue,end
-    x(i)=round(res(i)*x(i))/res(i);
+    x(i)=round(x(i)/res(i))*res(i);
 end
 gc=model.gc;
 v1=model.v1;
@@ -61,8 +63,8 @@ binary=(36:38);
 z(binary)=x(binary);
 
 tz=model.tz;
-t=x(end);
-t=round(t);
+t=
+=round(t);
 if t<1,t=1;end
 if t>length(tz)
     t=length(tz);
