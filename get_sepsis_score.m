@@ -11,18 +11,26 @@ if x(end,end)>=60
     score=14524/82011;
     return
 end
-
 nx=length(xname);
 
 %Preprocess demographic data
-c=strmatch('Age',xname);
-x(x(:,c)==100,1)=90;
-for c=36:40
-    x(isnan(x(:,c)),c)=0;
+for c=35:39
+    if isnan(x(1,c))
+        x(1,c)=0;
+    end
 end
 
-% [x,xmeas]=samplehold(x,t);
 [x,xmeas]=lastsample(x,x(:,end));
+
+unit=3;
+if x(1,37)==1
+    unit=1;
+end
+if x(1,38)==1
+    unit=2;
+end
+umodel=model.umodel(unit);
+
 vmeas=model.vmeas;
 for i=1:length(vmeas)    
     if xmeas(i)>=vmeas(i)
@@ -35,12 +43,13 @@ for i=1:length(res)
     if isnan(res(i)),continue,end
     x(i)=round(res(i)*x(i))/res(i);
 end
-gc=model.gc;
-v1=model.v1;
-v2=model.v2;
-gz=model.gz;
+
+gc=umodel.gc;
+v1=umodel.v1;
+v2=umodel.v2;
+gz=umodel.gz;
 z=zeros(1,nx);
-for i=1:(nx-1)
+for i=1:nx
     xx=x(i);
     if isnan(xx)
         j=find(gc==i&isnan(v1));
@@ -56,30 +65,13 @@ for i=1:(nx-1)
         z(i)=gz(j);
     end
 end
-
-binary=(36:38);
-z(binary)=x(binary);
-
-tz=model.tz;
-t=x(end);
-t=round(t);
-if t<1,t=1;end
-if t>length(tz)
-    t=length(tz);
-end
-z(end)=tz(t);
-
 z(isnan(z))=0;
-mod=model.mod;
-tmod=model.tmod;
-b=model.b;
-X=[1 z(mod) t*z(tmod)];
-
+mod=umodel.mod;
+b=umodel.b;
+X=[1 z(mod)];
 xb=X*b;
-s=round(10*xb);
-T=model.T;
-label=s>=T;
-pb=model.pb;
+label=xb>0;
+pb=umodel.pb;
 pxb=pb(1)+pb(2)*xb;
 score=exp(pxb)/(1+exp(pxb));
     
