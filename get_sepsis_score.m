@@ -6,30 +6,23 @@ xname={'HR','O2Sat','Temp','SBP','MAP','DBP','Resp','EtCO2','BaseExcess','HCO3',
     'Potassium','Bilirubin_total','TroponinI','Hct','Hgb','PTT','WBC','Fibrinogen',...
     'Platelets','Age','Gender','Unit1','Unit2','HospAdmTime','ICULOS'}';    
 
-if x(end,end)>=60
+t=x(:,end);
+if t(end)>=60
     label=1;
-    score=14524/82011;
+    score=1.8363;
     return
 end
 nx=length(xname);
 
-%Preprocess demographic data
+[x,xmeas]=lastsample(x,t);
+
+%Demographic data
 for c=35:39
-    if isnan(x(1,c))
-        x(1,c)=0;
+    if isnan(x(c))
+        x(c)=0;
     end
+    xmeas(c)=t(end)-1;
 end
-
-[x,xmeas]=lastsample(x,x(:,end));
-
-unit=3;
-if x(1,37)==1
-    unit=1;
-end
-if x(1,38)==1
-    unit=2;
-end
-umodel=model.umodel(unit);
 
 vmeas=model.vmeas;
 for i=1:length(vmeas)    
@@ -44,12 +37,12 @@ for i=1:length(res)
     x(i)=round(res(i)*x(i))/res(i);
 end
 
-gc=umodel.gc;
-v1=umodel.v1;
-v2=umodel.v2;
-gz=umodel.gz;
+gc=model.gc;
+v1=model.v1;
+v2=model.v2;
+gz=model.gz;
 z=zeros(1,nx);
-for i=1:nx
+for i=1:nx    
     xx=x(i);
     if isnan(xx)
         j=find(gc==i&isnan(v1));
@@ -65,15 +58,15 @@ for i=1:nx
         z(i)=gz(j);
     end
 end
-z(isnan(z))=0;
-mod=umodel.mod;
-b=umodel.b;
+
+mod=model.mod;
+b=model.b;
+
 X=[1 z(mod)];
+X(isnan(X))=0;
 xb=X*b;
 label=xb>0;
-pb=umodel.pb;
-pxb=pb(1)+pb(2)*xb;
-score=exp(pxb)/(1+exp(pxb));
+score=xb;
     
 end
 
