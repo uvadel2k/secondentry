@@ -6,17 +6,16 @@ xname={'HR','O2Sat','Temp','SBP','MAP','DBP','Resp','EtCO2','BaseExcess','HCO3',
     'Potassium','Bilirubin_total','TroponinI','Hct','Hgb','PTT','WBC','Fibrinogen',...
     'Platelets','Age','Gender','Unit1','Unit2','HospAdmTime','ICULOS'}';    
 
+tmax=model.tmax;
 tb=model.tb;
 nt=length(tb);
 t=x(:,end);
-tj=t(end);
-if tj<1,tj=1;end
-if tj>nt,tj=nt;end
-tscore=tb(tj);
-tmax=model.tmax;
-if tj>=tmax
+if t>=1
+if t(end)>=tmax;
+
+if t(end)>=60
     label=1;
-    score=tscore;
+    score=1.8363;
     return
 end
 nx=length(xname);
@@ -28,11 +27,11 @@ for c=35:39
     if isnan(x(c))
         x(c)=0;
     end
-    xmeas(c)=0;
+    xmeas(c)=t(end)-1;
 end
-cmax=34;
+
 vmeas=model.vmeas;
-for i=1:cmax
+for i=1:length(vmeas)    
     if xmeas(i)>=vmeas(i)
         x(i)=NaN;
     end
@@ -47,19 +46,9 @@ end
 gc=model.gc;
 v1=model.v1;
 v2=model.v2;
-zb=model.zb;
+gz=model.gz;
 z=zeros(1,nx);
-binary=false(nx,1);
-binary(36:38)=1;
-for i=1:nx
-    if binary(i)
-        z(i)=x(i);
-        continue
-    end
-    if i==nx
-        z(i)=tscore;
-        continue
-    end
+for i=1:nx    
     xx=x(i);
     if isnan(xx)
         j=find(gc==i&isnan(v1));
@@ -72,7 +61,7 @@ for i=1:nx
         end
     end
     if length(j)==1
-        z(i)=zb(j);
+        z(i)=gz(j);
     end
 end
 
