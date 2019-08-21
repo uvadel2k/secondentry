@@ -6,19 +6,19 @@ xname={'HR','O2Sat','Temp','SBP','MAP','DBP','Resp','EtCO2','BaseExcess','HCO3',
     'Potassium','Bilirubin_total','TroponinI','Hct','Hgb','PTT','WBC','Fibrinogen',...
     'Platelets','Age','Gender','Unit1','Unit2','HospAdmTime','ICULOS'}';    
 
-tb=model.tb;
-nt=length(tb);
+tmax=cat(1,model.tmax);
 t=x(:,end);
-tj=t(end);
-if tj<1,tj=1;end
-if tj>nt,tj=nt;end
-tscore=tb(tj);
-tmax=model.tmax;
-if tj>=tmax
+tt=t(end);
+if tt>max(tmax)
     label=1;
-    score=tscore;
+    score=20;
     return
 end
+tmin=cat(1,model.tmin);
+if tt<1,tt=1;end
+k=find(tt>=tmin,1,'last');
+tmodel=model(k);
+
 nx=length(xname);
 
 [x,xmeas]=lastsample(x,t);
@@ -30,60 +30,58 @@ for c=35:39
     end
     xmeas(c)=0;
 end
-cmax=34;
-vmeas=model.vmeas;
-for i=1:cmax
-    if xmeas(i)>=vmeas(i)
+maxmeas=336;
+meas=tmodel.meas;
+for i=1:length(meas)
+    if meas(i)>=maxmeas,continue,end
+    if xmeas(i)>=meas(i)
         x(i)=NaN;
     end
 end
-res=model.res;
+
+res=tmodel.res;
 for i=1:length(res)
     if isnan(x(i)),continue,end    
     if isnan(res(i)),continue,end
     x(i)=round(res(i)*x(i))/res(i);
 end
 
-gc=model.gc;
-v1=model.v1;
-v2=model.v2;
-zb=model.zb;
+binary=tmodel.binary;
+C=tmodel.C;
+v1=tmodel.v1;
+v2=tmodel.v2;
+b0=tmodel.b(1);
+b=tmodel.b(2:end);
 z=zeros(1,nx);
-binary=false(nx,1);
-binary(36:38)=1;
 for i=1:nx
+    xx=x(i);    
     if binary(i)
-        z(i)=x(i);
+        if xx==1
+            j=find(C==i);
+            if length(j)==1
+                z(i)=b(j);                
+            end
+        end
         continue
     end
-    if i==nx
-        z(i)=tscore;
-        continue
-    end
-    xx=x(i);
     if isnan(xx)
-        j=find(gc==i&isnan(v1));
+        j=find(C==i&isnan(v1));
     else
-        j=find(gc==i&~isnan(v1));
-        x1=v1(j);        
-        k=find(xx>=x1,1,'last');
+        j=find(C==i&~isnan(v1));
+        x1=v1(j);
+        x2=v2(j);
+        k=find(xx>=x1&xx<x2);
         if length(k)==1
             j=j(k);
         end
     end
     if length(j)==1
-        z(i)=zb(j);
+        z(i)=b(j);
     end
 end
 
-mod=model.mod;
-b=model.b;
-
-X=[1 z(mod)];
-X(isnan(X))=0;
-xb=X*b;
-label=xb>0;
-score=xb;
+score=b0+sum(z);
+label=score>=0;
     
 end
 
